@@ -1,0 +1,112 @@
+
+services:
+
+  # ---
+  # BANCO DE DADOS RELACIONAL
+  # ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: fts-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - financial-network
+    # Garante que os dependentes esperem o PG estar pronto realmente antes de tentarem conectar.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---
+  # BROKER DE MENSAGENS
+  # ---
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: fts-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: >-
+        -rabbitmq_management load_definitions "/etc/rabbitmq/definitions.json"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    networks:
+      - financial-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # ---
+  # CACHE E IDEMPOTÊNCIA
+  # ---
+  redis:
+    image: redis:7.2-alpine
+    container_name: fts-redis
+    # "appendonly yes" habilita o AOF (Append-Only File) do Redis.
+    # Em produção financeira, isso garante que as chaves de idempotência
+    # sobrevivam a reinicializações do container. Fundamental para o padrão que o projeto quer realizar.
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - financial-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---
+  # APLICAÇÃO .NET
+  # ---
+  api:
+    build:
+      context: .
+      dockerfile: src/FinancialTransactionService.Api/Dockerfile
+    container_name: fts-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_USER}
+      - RabbitMQ__Password=${RABBITMQ_PASSWORD}
+      - Redis__ConnectionString=redis:6379,password=${REDIS_PASSWORD}
+    networks:
+      - financial-network
+    # Garante que a API só inicia após as dependências de infraestrutura estarem saudáveis
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+# ---
+# VOLUMES NOMEADOS (persistência gerenciada pelo Docker)
+# ---
+volumes:
+  postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# ---
+# REDE ISOLADA (segurança: serviços se comunicam apenas internamente)
+# ---
+networks:
+  financial-network:
+    driver: bridge

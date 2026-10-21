@@ -1,0 +1,95 @@
+{
+    "rabbit_version": "3.13.0",
+    "rabbitmq_version": "3.13.0",
+    "vhosts": [
+        {
+        "name": "financial-vhost"
+        }
+    ],
+
+    "exchanges": [
+        {
+            "name": "transactions.exchange",
+            "vhost": "financial-vhost",
+            "type": "direct",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {}
+        },
+        {
+            "name": "transactions.exchange.dlx",
+            "vhost": "financial-vhost",
+            "type": "direct",
+            "durable": true,
+            "auto_delete": false,
+            "internal": false,
+            "arguments": {} 
+        }
+
+    ],
+    
+    "queues": [
+        {
+            "name": "transactions.process.queue",
+            "vhost": "financial-vhost",
+            "durable": true,
+            "auto_delete": false,
+            "arguments": {
+                "x-dead-letter-exchange": "transactions.exchange.dlx",
+                "x-dead-letter-routing-key": "transactions.dead",
+                "x-message-ttl": 86400000,
+                "x-queue-type": "classic"
+            }
+        },
+        {
+            "name": "transactions.dead.queue",
+            "vhost": "financial-vhost",
+            "durable": true,
+            "auto_delete": false,
+            "arguments":{
+                "x-queue-type": "classic"
+            }
+        }
+    ],
+
+    "bindings": [
+        {
+        "source": "transactions.exchange",
+        "vhost": "financial-vhost",
+        "destination": "transactions.process.queue",
+        "destination_type": "queue",
+        "routing_key": "transactions.created",
+        "arguments": {}
+        },
+
+        {
+        "source": "transactions.exchange.dlx",
+        "vhost": "financial-vhost",
+        "destination": "transactions.dead.queue",
+        "destination_type": "queue",
+        "routing_key": "transactions.dead",
+        "arguments": {}
+        }
+    ],
+    "users": [
+        {
+        "name": "fts_rabbit",
+        "password_hash": "",
+        "hashing_algorithm": "rabbit_password_hashing_sha256",
+        "tags": ["administrator"],
+        "limits": {}
+        }
+    ],
+
+    "permissions": [
+        {
+        "user": "fts_rabbit",
+        "vhost": "financial-vhost",
+        "configure": ".*",
+        "write": ".*",
+        "read": ".*"
+        }
+  ]
+
+}

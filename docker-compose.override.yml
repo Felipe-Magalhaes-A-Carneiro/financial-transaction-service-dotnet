@@ -1,0 +1,30 @@
+services:
+
+  postgres:
+    # Expõe a porta para que ferramentas externas (DBeaver, DataGrip, etc.) conectem
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    ports:
+      # AMQP: protocolo de mensagens usado pela aplicação .NET
+      - "5672:5672"
+      # HTTP: UI de gerenciamento web (acesse: http://localhost:15672)
+      - "15672:15672"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  api:
+    # Em dev, não buildamos a imagem — rodamos direto o dotnet watch para hot reload
+    build:
+      target: development
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "8080:8080"
+    volumes:
+      # Hot reload: monta o código-fonte dentro do container
+      - ./src:/app/src
