@@ -1,0 +1,55 @@
+## Arquivos gerados pelo .NET Build System
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Artefatos de publicação
+[Pp]ublish/
+[Pp]ublic[Ll]ines/
+
+## Arquivos de projeto do Visual Studio e Riders
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.idea/
+.vscode/
+*.swp
+
+## Pacotes NuGet restaurados (não serão versionados)
+*.nupkg
+**/packages/*
+!**/packages/build/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Resultados de testes e cobertura
+TestResults/
+coverage/
+*.coveragexml
+*.trx
+
+## Configurações de usuário e secrets (NUNCA versionar segredos)
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+secrets.json
+*.pfx
+*.key
+
+## Docker
+.dockerignore
+
+## Variáveis de ambiente
+.env
+.env.*
+
+## macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
