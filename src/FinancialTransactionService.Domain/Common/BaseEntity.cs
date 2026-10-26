@@ -21,11 +21,14 @@ public abstract class BaseEntity
     /// <summary> Timestamp UTC da última modificação. Atualizado em toda mudança de estado.</summary>
     public DateTime UpdatedAt { get; private set; }    
 
+    /// A coleção de eventos é privada para garantir que apenas a própria entridade adicione eventos a ela, nunca por um código externo. Será identificada como IReadOnlyCollection para leitura pelo dispatcher 
+    private readonly List<IDomainEvent> _domainEvents = [];
 
-    // O seguinte construtor protegido serve a dois propósitos:
-    // 1. Permite que classes filhas o chamem via "base()".
-    // 2. Impede instanciação direta de BaseEntity (que é abstrata de qualquer forma).
-    // O EF Core consegue chamar este construtor via reflexão para materializar entidades do banco.
+    /// <summary>
+    /// Eventos de domínio gerados por esta entidade, ainda não publicados. Serão coletados e despachados pelo Unit of Work ao fazer SaveChanges
+    /// </summary>
+    public IReadOnlyCollection<IDomainEvent> DomaingEvents => _domainEvents.AsReadOnly();
+
 
     protected BaseEntity()
     {
@@ -34,6 +37,24 @@ public abstract class BaseEntity
         UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Registra um novo evento de domínio na entidade.
+    /// O Evento será publicado pelo Unit of Work após a persistência bem-sucedida, garantindo consistência: o evento só sai se o dado foi salvo
+    /// </summary>
+    /// <param name="domainEvent"> O evento a ser registrado.</param>
+    protected void AddDomainEvent(IDomainEvent domaingEvent)
+    {
+        _domainEvents.Add(domaingEvent);
+    }
+
+    /// <summary>
+    /// Remove todos os eventos após a publicação pelo dispatcher.
+    /// Chamado pelo Unit od Work depois de despachar os eventos com sucesso.
+    /// </summary>
+    public void ClearDomainEvents()
+    {
+        _domainEvents.Clear();
+    }
 
     /// <summary>
     /// Atualiza o timestamp de modificação.

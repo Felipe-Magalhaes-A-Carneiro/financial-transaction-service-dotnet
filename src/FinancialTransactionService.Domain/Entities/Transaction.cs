@@ -1,5 +1,6 @@
 using FinancialTransactionService.Domain.Common;
 using FinancialTransactionService.Domain.Enums;
+using FinancialTransactionService.Domain.Events;
 
 namespace FinancialTransactionService.Domain.Entities;
 
@@ -101,9 +102,19 @@ public sealed class Transaction : BaseEntity
         Type = type;
         CorrelationId = correlationId;
         Description = description;
-
         // Toda transação nasce no estado Pending — aguardando processamento assíncrono
         Status = TransactionStatus.Pending;
+
+        // O evento é emitido APÓS todas as validações passarem.
+        // Só registramos o evento se o objeto foi criado em estado válido.
+        // O Unit of Work (que será implementado ao código) vai coletar e publicar este evento após o SaveChanges bem-sucedido, garantindo consistência.
+        AddDomainEvent(new TransactionCreatedEvent(
+            TransactionId: Id,
+            SourceAccountId: sourceAccountId,
+            DestinationAccountId: destinationAccountId,
+            AmountInCents: amountInCents,
+            Type: type,
+            CorrelationId: correlationId));
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -143,6 +154,12 @@ public sealed class Transaction : BaseEntity
 
         Status = TransactionStatus.Completed;
         SetUpdatedAt();
+
+        AddDomainEvent(new TransactionCompletedEvent(
+            TransactionId: Id,
+            CorrelationId: CorrelationId,
+            AmountInCents: AmountInCents,
+            CompletedAt: UpdatedAt));
     }
 
     /// <summary>
@@ -170,6 +187,12 @@ public sealed class Transaction : BaseEntity
         Status = TransactionStatus.Failed;
         FailureReason = reason;
         SetUpdatedAt();
+
+        AddDomainEvent(new TransactionFailedEvent(
+            TransactionId: Id,
+            CorrelationId: CorrelationId,
+            Reason: reason,
+            FailedAt: UpdatedAt));
     }
 
     /// <summary>
