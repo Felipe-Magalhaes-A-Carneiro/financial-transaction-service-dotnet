@@ -33,6 +33,13 @@ public sealed class Transaction : BaseEntity
     /// </summary>
     public long AmountInCents {get; private set; }
 
+    /// <summary>
+    /// Código ISO 4217 da moeda da transação (ex: "BRL", "USD").
+    /// Armazenado explicitamente para garantir que o histórico de transações
+    /// preserve a moeda original, independente de mudanças de configuração.
+    /// </summary>
+    public string Currency { get; private set; }
+
     ///<sumary>
     /// Valor da transação em centavos de BRL.
     /// Armazenado como long para precisão absoluta em cálculos financeiros.
@@ -84,12 +91,18 @@ public sealed class Transaction : BaseEntity
         Guid? sourceAccountId,
         Guid? destinationAccountId,
         long amountInCents,
+        string currency,
         TransactionType type,
         Guid correlationId,
         string? description = null)
     {
         ValidateAccounts(sourceAccountId, destinationAccountId, type);
         ValidateAmount(amountInCents);
+
+        if (string.IsNullOrWhiteSpace(currency))
+            throw new ArgumentException(
+                "Código de moeda não pode ser vazio.",
+                nameof(currency));
 
         if (correlationId == Guid.Empty)
             throw new ArgumentException(
@@ -99,6 +112,7 @@ public sealed class Transaction : BaseEntity
         SourceAccountId = sourceAccountId;
         DestinationAccountId = destinationAccountId;
         AmountInCents = amountInCents;
+        Currency = currency.Trim().ToUpperInvariant();
         Type = type;
         CorrelationId = correlationId;
         Description = description;
