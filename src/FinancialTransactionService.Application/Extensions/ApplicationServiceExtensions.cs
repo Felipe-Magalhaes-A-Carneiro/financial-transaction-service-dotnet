@@ -1,4 +1,5 @@
 using System.Reflection;
+using FinancialTransactionService.Application.Common.Behaviors;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,58 +7,51 @@ namespace FinancialTransactionService.Application.Extensions;
 
 /// <summary>
 /// Extensões para registro dos serviços da camada Application no container de DI.
-///
-/// Design: toda camada expõe um único método de extensão que encapsula
-/// todos os seus registros internos. O Program.cs (implementado no futuro) chama apenas:
-///   builder.Services.AddApplicationServices(); Sem precisar conhecer os detalhes internos da camada.
-///
-/// Este padrão é chamado de "Composition Root Encapsulation" e é
-/// amplamente adotado em times de engenharia de grande porte.
+/// Versão final com Pipeline Behaviors registrados e ordenados corretamente.
+/// 
 /// </summary>
 public static class ApplicationServiceExtensions
 {
     /// <summary>
     /// Registra todos os serviços da camada Application:
-    /// MediatR (Commands, Queries, Handlers), Pipeline Behaviors e Validators do FluentValidation.
+    /// MediatR com Pipeline Behaviors ordenados, e Validators do FluentValidation.
+    /// 
     /// </summary>
-    /// 
-    /// <param name="services">O container de serviços do .NET.</param>
-    /// 
-    /// <returns>O container para encadeamento fluente.</returns>
     public static IServiceCollection AddApplicationServices(
         this IServiceCollection services)
     {
         var assembly = Assembly.GetExecutingAssembly();
 
-        // ─────────────────────────────────────────────────────────────
-        // MEDIATR
-        // Registra automaticamente todos os IRequestHandler<,> e
-        // INotificationHandler<> encontrados neste assembly.
-        // ─────────────────────────────────────────────────────────────
         services.AddMediatR(config =>
         {
             config.RegisterServicesFromAssembly(assembly);
 
-            // Os Pipeline Behaviors são registrados aqui em ordem.
-            // A ordem importa: cada behavior envolve o próximo como camadas de cebola.
-            // LoggingBehavior -> ValidationBehavior -> Handler
-            // Implementados no futuro, as linhas abaixo serão descomentadas lá:
+            // ─────────────────────────────────────────────────────────
+            // ORDEM DOS BEHAVIORS - A ORDEM IMPORTA.
             //
-            // config.AddOpenBehavior(typeof(LoggingBehavior<,>));
-            // config.AddOpenBehavior(typeof(ValidationBehavior<,>));
+            // A pipeline é construída de fora para dentro (como middleware):
+            // o primeiro registrado é o mais externo (executa primeiro antes,
+            // último depois).
+            //
+            // Ordem correta:
+            //   LoggingBehavior -> ValidationBehavior → Handler
+            //
+            // Por quê esta ordem?
+            //   1. LoggingBehavior: mede o tempo TOTAL incluindo validação.
+            //      Se registrássemos após Validation, não mediríamos o tempo
+            //      gasto na validação em si.
+            //
+            //   2. ValidationBehavior: rejeita inputs inválidos ANTES de chegar ao handler. Nenhuma lógica de negócio é executada com dados ruins.
+            //
+            //   3. Handler: executa apenas se a validação passou.
+            // ─────────────────────────────────────────────────────────
+            config.AddOpenBehavior(typeof(LoggingBehavior<,>));
+            config.AddOpenBehavior(typeof(ValidationBehavior<,>));
         });
 
-        // ─────────────────────────────────────────────────────────────
-        // FLUENTVALIDATION
-        // Registra automaticamente todos os AbstractValidator<T>
-        // encontrados neste assembly como IValidator<T> no container.
-        // ─────────────────────────────────────────────────────────────
         services.AddValidatorsFromAssembly(
             assembly: assembly,
-            // ServiceLifetime.Scoped é o padrão correto para validators
-            // que podem ter dependências de serviços com escopo por requisição.
             lifetime: ServiceLifetime.Scoped,
-            // Não registra validators de tipos abertos (genéricos) automaticamente
             includeInternalTypes: false);
 
         return services;
