@@ -27,7 +27,7 @@ public abstract class BaseEntity
     /// <summary>
     /// Eventos de domínio gerados por esta entidade, ainda não publicados. Serão coletados e despachados pelo Unit of Work ao fazer SaveChanges
     /// </summary>
-    public IReadOnlyCollection<IDomainEvent> DomaingEvents => _domainEvents.AsReadOnly();
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
 
     protected BaseEntity()
