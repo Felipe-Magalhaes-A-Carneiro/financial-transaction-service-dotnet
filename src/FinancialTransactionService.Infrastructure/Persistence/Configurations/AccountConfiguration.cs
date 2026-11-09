@@ -82,20 +82,6 @@ public sealed class AccountConfiguration : IEntityTypeConfiguration<Account>
             .IsRequired()
             .HasDefaultValue(true);
 
-        // ────────────────
-        // RELACIONAMENTOS
-        // ────────────────
-
-        // A coleção Transactions é mapeada pelo lado oposto
-        // em TransactionConfiguration (HasOne → WithMany).
-        // Aqui apenas ignoramos a propriedade de navegação de saída
-        // para evitar configuração duplicada pelo EF Core.
-        // A coleção de leitura (IReadOnlyCollection) é ignorada
-        // porque o EF Core mapeia pelo campo privado _transactions.
-        builder.Metadata
-            .FindNavigation(nameof(Account.Transactions))!
-            .SetPropertyAccessMode(PropertyAccessMode.Field);
-
         // ───────
         // ÍNDICES
         // ───────
